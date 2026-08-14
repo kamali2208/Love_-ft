@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width,initial-scale=1.0,user-scalable=no">
+
+<title>Advance Birthday Puzzle 🧩</title>
+
+<style>
+*{
+  box-sizing:border-box;
+  margin:0;
+  padding:0;
+}
+
+body{
+  min-height:100vh;
+  overflow:hidden;
+  background:#050308;
+  color:white;
+  font-family:Georgia,serif;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+}
+
+#game{
+  width:100%;
+  max-width:500px;
+  text-align:center;
+  padding:15px;
+}
+
+h1{
+  color:#f5d58a;
+  font-size:28px;
+  margin-bottom:6px;
+  letter-spacing:2px;
+}
+
+p{
+  color:#bfb4c8;
+  font-size:13px;
+  margin-bottom:15px;
+}
+
+#board{
+  position:relative;
+  width:min(92vw,420px);
+  aspect-ratio:1/1;
+  margin:auto;
+  border-radius:16px;
+  background:#111;
+  overflow:hidden;
+
+  box-shadow:
+    0 0 0 2px #a47b35,
+    0 20px 60px #000;
+}
+
+/* Every piece stays INSIDE board */
+
+.piece{
+  position:absolute;
+  width:25%;
+  height:25%;
+
+  touch-action:none;
+  user-select:none;
+
+  cursor:grab;
+
+  transition:
+    left .22s ease,
+    top .22s ease,
+    transform .15s ease;
+
+  z-index:2;
+}
+
+.piece.dragging{
+  cursor:grabbing;
+  transform:scale(1.04);
+  z-index:100;
+}
+
+/*
+ REAL JIGSAW SHAPE
+*/
+
+svg{
+  width:100%;
+  height:100%;
+  overflow:visible;
+  display:block;
+  filter:
+    drop-shadow(0 5px 5px rgba(0,0,0,.75));
+}
+
+.jigsaw-border{
+  fill:none;
+  stroke:rgba(255,255,255,.55);
+  stroke-width:1.2;
+}
+
+/* Progress */
+
+#progress{
+  width:min(80%,350px);
+  height:5px;
+  background:#29232d;
+  border-radius:10px;
+  margin:16px auto 0;
+  overflow:hidden;
+}
+
+#bar{
+  width:0%;
+  height:100%;
+  background:#e5c46c;
+  transition:.3s;
+}
+
+#status{
+  margin-top:10px;
+  min-height:20px;
+  font-size:13px;
+  color:#d6c7d9;
+}
+
+/* FINAL */
+
+#final{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:
+    radial-gradient(circle,#3b1855,#09050d 65%);
+  justify-content:center;
+  align-items:center;
+  text-align:center;
+  padding:20px;
+  z-index:999;
+}
+
+.finalBox{
+  animation:appear 1.3s ease;
+}
+
+.finalPhoto{
+  width:min(65vw,270px);
+  height:min(65vw,270px);
+  object-fit:cover;
+  border-radius:50%;
+  padding:5px;
+
+  background:
+    linear-gradient(135deg,#fff0a8,#a66b22,#fff0a8);
+
+  box-shadow:
+    0 0 30px rgba(255,210,100,.55),
+    0 0 100px rgba(255,170,70,.25);
+}
+
+.small{
+  margin-top:22px;
+  font-size:12px;
+  letter-spacing:4px;
+  color:#cbbbd0;
+}
+
+.finalTitle{
+  margin-top:12px;
+  font-size:42px;
+  line-height:1.05;
+  color:#ffe4a0;
+  text-shadow:
+    0 0 15px #c79b42;
+}
+
+.finalText{
+  margin-top:18px;
+  color:#d7cedc;
+  line-height:1.7;
+  font-size:14px;
+}
+
+@keyframes appear{
+  from{
+    opacity:0;
+    transform:scale(.7);
+  }
+  to{
+    opacity:1;
+    transform:scale(1);
+  }
+}
+
+.confetti{
+  position:fixed;
+  top:-20px;
+  width:7px;
+  height:12px;
+  z-index:1000;
+  animation:fall 4s linear forwards;
+}
+
+@keyframes fall{
+  to{
+    transform:
+      translateY(110vh)
+      rotate(720deg);
+    opacity:0;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<div id="game">
+
+  <h1>🧩 A Little Surprise</h1>
+
+  <p>
+    Put every piece together to unlock your birthday wish ❤️
+  </p>
+
+  <div id="board"></div>
+
+  <div id="progress">
+    <div id="bar"></div>
+  </div>
+
+  <div id="status">
+    Find the correct place for every piece...
+  </div>
+
+</div>
+
+
+<div id="final">
+
+  <div class="finalBox">
+
+    <img
+      src="photo01.jpg"
+      class="finalPhoto"
+    >
+
+    <div class="small">
+      PUZZLE COMPLETE ✨
+    </div>
+
+    <div class="finalTitle">
+      Advance<br>
+      Happy Birthday ❤️
+    </div>
+
+    <div class="finalText">
+      Every little piece found its place...
+      <br>
+      Just like every beautiful memory
+      finds its place in the heart. 🥹
+    </div>
+
+  </div>
+
+</div>
+
+
+<script>
+
+const IMAGE = "photo01.jpg";
+
+const ROWS = 4;
+const COLS = 4;
+const TOTAL = ROWS * COLS;
+
+const board =
+  document.getElementById("board");
+
+const bar =
+  document.getElementById("bar");
+
+const statusText =
+  document.getElementById("status");
+
+let pieces = [];
+
+let boardW;
+let boardH;
+
+let pieceW;
+let pieceH;
+
+let solved = 0;
+
+let dragPiece = null;
+
+let offsetX = 0;
+let offsetY = 0;
+
+
+/* --------------------------------
+   EDGE DATA
+-------------------------------- */
+
+const horizontal = [];
+const vertical = [];
+
+
+/* --------------------------------
+   RANDOM EDGE
+-------------------------------- */
+
+function randomEdge(){
+
+  return Math.random() > .5 ? 1 : -1;
+
+}
+
+
+/* --------------------------------
+   CREATE EDGES
+-------------------------------- */
+
+function makeEdges(){
+
+  for(let r=0;r<ROWS;r++){
+
+    horizontal[r]=[];
+
+    for(let c=0;c<COLS-1;c++){
+
+      horizontal[r][c]=
+        randomEdge();
+
+    }
+
+  }
+
+  for(let r=0;r<ROWS-1;r++){
+
+    vertical[r]=[];
+
+    for(let c=0;c<COLS;c++){
+
+      vertical[r][c]=
+        randomEdge();
+
+    }
+
+  }
+
+}
+
+
+/* --------------------------------
+   JIGSAW PATH
+-------------------------------- */
+
+function createPath(r,c){
+
+  const w=100;
+  const h=100;
+
+  let d=`M 0 0`;
+
+  /* TOP */
+
+  if(r===0){
+
+    d+=` L 100 0`;
+
+  }else{
+
+    d+=topEdge(
+      vertical[r-1][c]
+    );
+
+  }
+
+
+  /* RIGHT */
+
+  if(c===COLS-1){
+
+    d+=` L 100 100`;
+
+  }else{
+
+    d+=rightEdge(
+      horizontal[r][c]
+    );
+
+  }
+
+
+  /* BOTTOM */
+
+  if(r===ROWS-1){
+
+    d+=` L 0 100`;
+
+  }else{
+
+    d+=bottomEdge(
+      vertical[r][c]
+    );
+
+  }
+
+
+  /* LEFT */
+
+  if(c===0){
+
+    d+=` L 0 0`;
+
+  }else{
+
+    d+=leftEdge(
+      horizontal[r][c-1]
+    );
+
+  }
+
+  d+=" Z";
+
+  return d;
+}
+
+
+/* --------------------------------
+   TOP
+-------------------------------- */
+
+function topEdge(v){
+
+  if(v===1){
+
+    return `
+      L 35 0
+      C 35 -20 65 -20 65 0
+      L 100 0
+    `;
+
+  }
+
+  return `
+    L 35 0
+    C 35 20 65 20 65 0
+    L 100 0
+  `;
+}
+
+
+/* --------------------------------
+   RIGHT
+-------------------------------- */
+
+function rightEdge(v){
+
+  if(v===1){
+
+    return `
+      L 100 35
+      C 120 35 120 65 100 65
+      L 100 100
+    `;
+
+  }
+
+  return `
+    L 100 35
+    C 80 35 80 65 100 65
+    L 100 100
+  `;
+}
+
+
+/* --------------------------------
+   BOTTOM
+-------------------------------- */
+
+function bottomEdge(v){
+
+  if(v===1){
+
+    return `
+      L 65 100
+      C 65 120 35 120 35 100
+      L 0 100
+    `;
+
+  }
+
+  return `
+    L 65 100
+    C 65 80 35 80 35 100
+    L 0 100
+  `;
+}
+
+
+/* --------------------------------
+   LEFT
+-------------------------------- */
+
+function leftEdge(v){
+
+  if(v===1){
+
+    return `
+      L 0 65
+      C -20 65 -20 35 0 35
+      L 0 0
+    `;
+
+  }
+
+  return `
+    L 0 65
+    C 20 65 20 35 0 35
+    L 0 0
+  `;
+}
+
+
+/* --------------------------------
+   BUILD PUZZLE
+-------------------------------- */
+
+function createPuzzle(){
+
+  board.innerHTML="";
+
+  pieces=[];
+
+  solved=0;
+
+  boardW=
+    board.clientWidth;
+
+  boardH=
+    board.clientHeight;
+
+  pieceW=
+    boardW/COLS;
+
+  pieceH=
+    boardH/ROWS;
+
+  makeEdges();
+
+
+  for(let r=0;r<ROWS;r++){
+
+    for(let c=0;c<COLS;c++){
+
+      createPiece(r,c);
+
+    }
+
+  }
+
+  shuffle();
+
+}
+
+
+/* --------------------------------
+   CREATE PIECE
+-------------------------------- */
+
+function createPiece(r,c){
+
+  const piece =
+    document.createElement("div");
+
+  piece.className="piece";
+
+  piece.style.width=
+    pieceW+"px";
+
+  piece.style.height=
+    pieceH+"px";
+
+
+  /*
+    SVG canvas slightly larger so
+    tabs are not clipped.
+  */
+
+  const svgNS=
+    "http://www.w3.org/2000/svg";
+
+  const svg=
+    document.createElementNS(
+      svgNS,
+      "svg"
+    );
+
+  svg.setAttribute(
+    "viewBox",
+    "-25 -25 150 150"
+  );
+
+  svg.setAttribute(
+    "preserveAspectRatio",
+    "none"
+  );
+
+
+  const defs=
+    document.createElementNS(
+      svgNS,
+      "defs"
+    );
+
+  const clip=
+    document.createElementNS(
+      svgNS,
+      "clipPath"
+    );
+
+  const id=
+    "clip_"+r+"_"+c;
+
+  clip.setAttribute(
+    "id",
+    id
+  );
+
+
+  const shape=
+    document.createElementNS(
+      svgNS,
+      "path"
+    );
+
+  shape.setAttribute(
+    "d",
+    createPath(r,c)
+  );
+
+  clip.appendChild(shape);
+
+  defs.appendChild(clip);
+
+  svg.appendChild(defs);
+
+
+  /*
+    PHOTO
+  */
+
+  const image=
+    document.createElementNS(
+      svgNS,
+      "image"
+    );
+
+  image.setAttribute(
+    "href",
+    IMAGE
+  );
+
+  /*
+    Full image is positioned relative
+    to the whole puzzle.
+  */
+
+  image.setAttribute(
+    "x",
+    -c*100
+  );
+
+  image.setAttribute(
+    "y",
+    -r*100
+  );
+
+  image.setAttribute(
+    "width",
+    COLS*100
+  );
+
+  image.setAttribute(
+    "height",
+    ROWS*100
+  );
+
+  image.setAttribute(
+    "preserveAspectRatio",
+    "none"
+  );
+
+  image.setAttribute(
+    "clip-path",
+    `url(#${id})`
+  );
+
+  svg.appendChild(image);
+
+
+  /*
+    BORDER
+  */
+
+  const border=
+    document.createElementNS(
+      svgNS,
+      "path"
+    );
+
+  border.setAttribute(
+    "d",
+    createPath(r,c)
+  );
+
+  border.setAttribute(
+    "class",
+    "jigsaw-border"
+  );
+
+  svg.appendChild(border);
+
+  piece.appendChild(svg);
+
+  board.appendChild(piece);
+
+
+  const data={
+
+    el:piece,
+
+    row:r,
+
+    col:c,
+
+    correctX:c*pieceW,
+
+    correctY:r*pieceH,
+
+    locked:false
+
+  };
+
+
+  pieces.push(data);
+
+
+  piece.addEventListener(
+    "pointerdown",
+    e=>startDrag(e,data)
+  );
+
+}
+
+
+/* --------------------------------
+   SHUFFLE
+-------------------------------- */
+
+function shuffle(){
+
+  /*
+    IMPORTANT:
+    Random positions are ALWAYS
+    calculated inside the board.
+  */
+
+  pieces.forEach(p=>{
+
+    const maxX=
+      boardW-pieceW;
+
+    const maxY=
+      boardH-pieceH;
+
+    let x,y;
+
+    do{
+
+      x=
+        Math.random()*maxX;
+
+      y=
+        Math.random()*maxY;
+
+    }while(
+
+      Math.abs(x-p.correctX)
+        < pieceW*.4 &&
+
+      Math.abs(y-p.correctY)
+        < pieceH*.4
+
+    );
+
+
+    p.el.style.left=
+      x+"px";
+
+    p.el.style.top=
+      y+"px";
+
+  });
+
+}
+
+
+/* --------------------------------
+   DRAG START
+-------------------------------- */
+
+function startDrag(e,p){
+
+  if(p.locked)
+    return;
+
+  dragPiece=p;
+
+  const rect=
+    p.el.getBoundingClientRect();
+
+  offsetX=
+    e.clientX-rect.left;
+
+  offsetY=
+    e.clientY-rect.top;
+
+  p.el.classList.add(
+    "dragging"
+  );
+
+  p.el.setPointerCapture(
+    e.pointerId
+  );
+
+  p.el.onpointermove=
+    moveDrag;
+
+  p.el.onpointerup=
+    endDrag;
+
+}
+
+
+/* --------------------------------
+   DRAG MOVE
+-------------------------------- */
+
+function moveDrag(e){
+
+  if(!dragPiece)
+    return;
+
+  const rect=
+    board.getBoundingClientRect();
+
+  let x=
+    e.clientX-
+    rect.left-
+    offsetX;
+
+  let y=
+    e.clientY-
+    rect.top-
+    offsetY;
+
+
+  /*
+    HARD LIMIT:
+    NEVER outside board.
+  */
+
+  x=
+    Math.max(
+      0,
+      Math.min(
+        boardW-pieceW,
+        x
+      )
+    );
+
+  y=
+    Math.max(
+      0,
+      Math.min(
+        boardH-pieceH,
+        y
+      )
+    );
+
+
+  dragPiece.el.style.left=
+    x+"px";
+
+  dragPiece.el.style.top=
+    y+"px";
+
+}
+
+
+/* --------------------------------
+   DRAG END
+-------------------------------- */
+
+function endDrag(){
+
+  if(!dragPiece)
+    return;
+
+  const p=
+    dragPiece;
+
+  p.el.classList.remove(
+    "dragging"
+  );
+
+
+  const x=
+    parseFloat(
+      p.el.style.left
+    );
+
+  const y=
+    parseFloat(
+      p.el.style.top
+    );
+
+
+  const distance=
+    Math.hypot(
+      x-p.correctX,
+      y-p.correctY
+    );
+
+
+  /*
+    SNAP
+  */
+
+  if(
+    distance<
+    Math.min(
+      pieceW,
+      pieceH
+    )*.30
+  ){
+
+    p.el.style.left=
+      p.correctX+"px";
+
+    p.el.style.top=
+      p.correctY+"px";
+
+    p.locked=true;
+
+    solved++;
+
+    updateProgress();
+
+    if(solved===TOTAL){
+
+      setTimeout(
+        completePuzzle,
+        700
+      );
+
+    }
+
+  }
+
+  dragPiece=null;
+
+}
+
+
+/* --------------------------------
+   PROGRESS
+-------------------------------- */
+
+function updateProgress(){
+
+  const percent=
+    solved/TOTAL*100;
+
+  bar.style.width=
+    percent+"%";
+
+  statusText.textContent=
+    solved+
+    " / "+
+    TOTAL+
+    " pieces completed ❤️";
+
+}
+
+
+/* --------------------------------
+   COMPLETE
+-------------------------------- */
+
+function completePuzzle(){
+
+  document.getElementById("game")
+    .style.display="none";
+
+  document.getElementById("final")
+    .style.display="flex";
+
+  celebration();
+
+}
+
+
+/* --------------------------------
+   CONFETTI
+-------------------------------- */
+
+function celebration(){
+
+  for(let i=0;i<120;i++){
+
+    setTimeout(()=>{
+
+      const c=
+        document.createElement(
+          "div"
+        );
+
+      c.className="confetti";
+
+      c.style.left=
+        Math.random()*100+
+        "vw";
+
+      c.style.animationDuration=
+        2+
+        Math.random()*3+
+        "s";
+
+      document.body.appendChild(c);
+
+      setTimeout(
+        ()=>c.remove(),
+        5000
+      );
+
+    },
+    Math.random()*1500);
+
+  }
+
+}
+
+
+/* --------------------------------
+   START
+-------------------------------- */
+
+const testImage=
+  new Image();
+
+testImage.onload=
+  createPuzzle;
+
+testImage.onerror=
+  ()=>{
+    statusText.innerHTML=
+      "⚠️ Please keep <b>photo01.jpg</b> beside index.html";
+  };
+
+testImage.src=
+  IMAGE;
+
+
+/* --------------------------------
+   RESIZE
+-------------------------------- */
+
+window.addEventListener(
+  "resize",
+  ()=>{
+    if(!dragPiece){
+      createPuzzle();
+    }
+  }
+);
+
+</script>
+
+</body>
+  </html>
